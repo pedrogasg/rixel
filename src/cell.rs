@@ -1,8 +1,9 @@
 use bevy::{
+    math::{UVec2, Vec2},
     prelude::*,
     reflect::TypeUuid,
     render::{
-        mesh::{Indices, Mesh, MeshVertexBufferLayout, MeshVertexAttribute},
+        mesh::{Indices, Mesh, MeshVertexAttribute, MeshVertexBufferLayout},
         render_resource::{
             AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
         },
@@ -11,6 +12,58 @@ use bevy::{
 };
 
 use wgpu::{PrimitiveTopology, VertexFormat};
+use crate::grid;
+#[derive(Component, Reflect, Default, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd)]
+pub struct CellPosition {
+    pub x: u32,
+    pub y: u32,
+}
+
+impl CellPosition {
+    pub fn new(x: u32, y: u32) -> Self {
+        Self { x, y }
+    }
+    /// Converts a tile position (2D) into an index in a flattened vector (1D), assuming the
+    /// tile position lies in a tilemap of the specified size.
+    pub fn to_index(&self, grid_size: &grid::GridSize) -> usize {
+        ((self.y * grid_size.width) + self.x) as usize
+    }
+
+    /// Checks to see if `self` lies within a tilemap of the specified size.
+    pub fn within_map_bounds(&self, grid_size: &grid::GridSize) -> bool {
+        self.x < grid_size.width && self.y < grid_size.height
+    }
+}
+
+impl From<CellPosition> for UVec2 {
+    fn from(pos: CellPosition) -> Self {
+        UVec2::new(pos.x, pos.y)
+    }
+}
+
+impl From<&CellPosition> for UVec2 {
+    fn from(pos: &CellPosition) -> Self {
+        UVec2::new(pos.x, pos.y)
+    }
+}
+
+impl From<UVec2> for CellPosition {
+    fn from(v: UVec2) -> Self {
+        Self { x: v.x, y: v.y }
+    }
+}
+
+impl From<CellPosition> for Vec2 {
+    fn from(pos: CellPosition) -> Self {
+        Vec2::new(pos.x as f32, pos.y as f32)
+    }
+}
+
+impl From<&CellPosition> for Vec2 {
+    fn from(pos: &CellPosition) -> Self {
+        Vec2::new(pos.x as f32, pos.y as f32)
+    }
+}
 
 /// A regular polygon in the `XY` plane
 #[derive(Debug, Copy, Clone)]
