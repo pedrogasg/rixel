@@ -132,12 +132,19 @@ impl Plugin for GridPlugin {
         app.add_plugin(Material2dPlugin::<cell::CellMaterial>::default())
             .insert_resource(grid_size)
             .add_startup_system(spawn_cells)
-            .add_system(transform_cells);
+            .add_system(selected_cells)
+            .add_system(update_cell);
     }
 }
 
 #[derive(Component)]
 struct LastUpdate(f64);
+
+#[derive(Debug, Default, Clone)]
+#[derive(Component)]
+pub struct UpdateCell {
+    pub color: Color,
+}
 
 fn spawn_cells(
     windows: Res<Windows>,
@@ -163,11 +170,12 @@ fn spawn_cells(
         let color = Color::ALICE_BLUE;
 
         let cell_position = cell::CellPosition::new(i, j);
+        let handle = materials.add(cell::CellMaterial::new(color));
 
         let cell_id = commands
             .spawn(MaterialMesh2dBundle {
                 mesh: meshes.add(cell::Cell::new(size).into()).into(),
-                material: materials.add(cell::CellMaterial::new(color)),
+                material: handle,
                 transform: Transform::from_xyz(
                     (size * i as f32) - left,
                     (size * j as f32) - top,
@@ -191,46 +199,40 @@ fn spawn_cells(
         .insert(Name::new("Grid"));
 }
 
-fn transform_cells(
+fn selected_cells(
     time: Res<Time>,
-    windows: Res<Windows>,
     grid_size: ResMut<GridSize>,
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<cell::CellMaterial>>,
     mut grid_query: Query<(&mut LastUpdate, &mut Grid)>,
 ) {
-    let (width, heigth) = match windows.get_primary() {
-        Some(window) => (window.width(), window.height()),
-        None => (1024., 1024.),
-    };
-    let size = (width / grid_size.width as f32).floor();
-    let left = ((width / 2.) - (size / 2.)).floor();
-    let top = ((heigth / 2.) - (size / 2.)).floor();
     let x = rand::thread_rng().gen_range(0..grid_size.width as u32);
     let y = rand::thread_rng().gen_range(0..grid_size.height as u32);
     let current_time = time.elapsed_seconds_f64();
-    for (mut last_update, mut grid) in grid_query.iter_mut() {
+    for (mut last_update, grid) in grid_query.iter_mut() {
         if current_time - last_update.0 > 1.0 {
             let cell_position = cell::CellPosition::new(x, y);
             let cell_entity = grid.get(&cell_position).unwrap();
-            let color = Color::DARK_GRAY;
-            commands.entity(cell_entity).despawn();
-            let cell_id = commands
-                .spawn(MaterialMesh2dBundle {
-                    mesh: meshes.add(cell::Cell::new(size).into()).into(),
-                    material: materials.add(cell::CellMaterial::new(color)),
-                    transform: Transform::from_xyz(
-                        (size * x as f32) - left,
-                        (size * y as f32) - top,
-                        0.,
-                    ),
-                    ..default()
-                })
-                .insert(Name::new(format!("Cell {} {}", x, y)))
-                .id();
-            grid.set(&cell_position, cell_id);
+            let mut current_cell = commands.entity(cell_entity);
+            current_cell.insert(UpdateCell {
+                color: Color::BLACK,
+            });
             last_update.0 = current_time;
         }
     }
 }
+
+fn update_cell(
+    mut query: Query<(Entity, &Handle<cell::CellMaterial>, &UpdateCell)>,
+    mut materials: ResMut<Assets<cell::CellMaterial>>,
+    mut commands: Commands,
+) {
+    
+    for (entity, material_handle, update) in query.iter_mut(){
+        let mut material = materials.get_mut(&material_handle).unwrap();
+
+        material.color = update.color;
+        let mut current_cell = commands.entity(entity);
+        current_cell.remove::<UpdateCell>();
+    }
+}
+

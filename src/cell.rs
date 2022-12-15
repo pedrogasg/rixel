@@ -138,7 +138,7 @@ impl From<Cell> for Mesh {
 #[uuid = "4ee9c363-1124-4113-890e-199d81b00281"]
 pub struct CellMaterial {
     #[uniform(0)]
-    color: Color,
+    pub color: Color,
 }
 
 impl CellMaterial {
