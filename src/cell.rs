@@ -1,8 +1,9 @@
 use bevy::{
+    math::{UVec2, Vec2},
     prelude::*,
     reflect::TypeUuid,
     render::{
-        mesh::{Indices, Mesh, MeshVertexBufferLayout, MeshVertexAttribute},
+        mesh::{Indices, Mesh, MeshVertexAttribute, MeshVertexBufferLayout},
         render_resource::{
             AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
         },
@@ -10,7 +11,71 @@ use bevy::{
     sprite::{Material2d, Material2dKey},
 };
 
+use crate::grid::{self, GridConfig};
 use wgpu::{PrimitiveTopology, VertexFormat};
+#[derive(Component, Reflect, Default, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd)]
+pub struct CellPosition {
+    pub x: u32,
+    pub y: u32,
+}
+
+impl CellPosition {
+    pub fn new(x: u32, y: u32) -> Self {
+        Self { x, y }
+    }
+    /// Converts a tile position (2D) into an index in a flattened vector (1D), assuming the
+    /// tile position lies in a tilemap of the specified size.
+    pub fn to_index(&self, grid_config: &grid::GridConfig) -> usize {
+        ((self.y * grid_config.grid_width) + self.x) as usize
+    }
+
+    pub fn to_screen_position(&self, grid_config: &grid::GridConfig) -> (f32, f32) {
+        match grid_config {
+            GridConfig{grid_width, grid_height, window_width, window_height} => {
+                let size_x = (window_width / grid_width) as f32;
+                let size_y = (window_height/ grid_height)  as f32;
+                let left = ((window_width / 2) as f32 - (size_x / 2.)) as f32;
+                let top = ((window_height / 2) as f32 - (size_y / 2.)) as f32;
+                ((size_x * self.x as f32) - left, (size_x * self.y as f32) - top)
+            }
+        }
+    }
+
+    /// Checks to see if `self` lies within a tilemap of the specified size.
+    pub fn within_map_bounds(&self, grid_size: &grid::GridConfig) -> bool {
+        self.x < grid_size.grid_width && self.y < grid_size.grid_height
+    }
+}
+
+impl From<CellPosition> for UVec2 {
+    fn from(pos: CellPosition) -> Self {
+        UVec2::new(pos.x, pos.y)
+    }
+}
+
+impl From<&CellPosition> for UVec2 {
+    fn from(pos: &CellPosition) -> Self {
+        UVec2::new(pos.x, pos.y)
+    }
+}
+
+impl From<UVec2> for CellPosition {
+    fn from(v: UVec2) -> Self {
+        Self { x: v.x, y: v.y }
+    }
+}
+
+impl From<CellPosition> for Vec2 {
+    fn from(pos: CellPosition) -> Self {
+        Vec2::new(pos.x as f32, pos.y as f32)
+    }
+}
+
+impl From<&CellPosition> for Vec2 {
+    fn from(pos: &CellPosition) -> Self {
+        Vec2::new(pos.x as f32, pos.y as f32)
+    }
+}
 
 /// A regular polygon in the `XY` plane
 #[derive(Debug, Copy, Clone)]
@@ -85,7 +150,7 @@ impl From<Cell> for Mesh {
 #[uuid = "4ee9c363-1124-4113-890e-199d81b00281"]
 pub struct CellMaterial {
     #[uniform(0)]
-    color: Color,
+    pub color: Color,
 }
 
 impl CellMaterial {
