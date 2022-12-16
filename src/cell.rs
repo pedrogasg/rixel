@@ -11,8 +11,8 @@ use bevy::{
     sprite::{Material2d, Material2dKey},
 };
 
+use crate::grid::{self, GridConfig};
 use wgpu::{PrimitiveTopology, VertexFormat};
-use crate::grid;
 #[derive(Component, Reflect, Default, Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd)]
 pub struct CellPosition {
     pub x: u32,
@@ -25,13 +25,25 @@ impl CellPosition {
     }
     /// Converts a tile position (2D) into an index in a flattened vector (1D), assuming the
     /// tile position lies in a tilemap of the specified size.
-    pub fn to_index(&self, grid_size: &grid::GridSize) -> usize {
-        ((self.y * grid_size.width) + self.x) as usize
+    pub fn to_index(&self, grid_config: &grid::GridConfig) -> usize {
+        ((self.y * grid_config.grid_width) + self.x) as usize
+    }
+
+    pub fn to_screen_position(&self, grid_config: &grid::GridConfig) -> (f32, f32) {
+        match grid_config {
+            GridConfig{grid_width, grid_height, window_width, window_height} => {
+                let size_x = (window_width / grid_width) as f32;
+                let size_y = (window_height/ grid_height)  as f32;
+                let left = ((window_width / 2) as f32 - (size_x / 2.)) as f32;
+                let top = ((window_height / 2) as f32 - (size_y / 2.)) as f32;
+                ((size_x * self.x as f32) - left, (size_x * self.y as f32) - top)
+            }
+        }
     }
 
     /// Checks to see if `self` lies within a tilemap of the specified size.
-    pub fn within_map_bounds(&self, grid_size: &grid::GridSize) -> bool {
-        self.x < grid_size.width && self.y < grid_size.height
+    pub fn within_map_bounds(&self, grid_size: &grid::GridConfig) -> bool {
+        self.x < grid_size.grid_width && self.y < grid_size.grid_height
     }
 }
 

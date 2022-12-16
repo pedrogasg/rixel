@@ -2,6 +2,7 @@
 extern crate itertools;
 use bevy::prelude::*;
 use bevy_inspector_egui::WorldInspectorPlugin;
+use grid::GridConfig;
 pub mod cell;
 pub mod grid;
 
@@ -28,14 +29,19 @@ fn main() {
                 }),
         )
         .add_startup_system(setup)
-        .add_plugin(grid::GridPlugin::new(24, 24))
+        .add_plugin(grid::GridPlugin::new(GridConfig {
+            window_height: HEIGHT as u32,
+            window_width: WIDTH as u32,
+            grid_height: 24,
+            grid_width: 24,
+        }))
         .add_plugin(WorldInspectorPlugin::new())
         .run();
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle{
-        projection: OrthographicProjection{
+    commands.spawn(Camera2dBundle {
+        projection: OrthographicProjection {
             left: -(WIDTH / 2.).floor(),
             right: (WIDTH / 2.).floor(),
             top: -(HEIGHT / 2.).floor(),
