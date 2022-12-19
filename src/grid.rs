@@ -3,7 +3,7 @@ use bevy::{
     prelude::*,
     sprite::{Material2dPlugin, MaterialMesh2dBundle},
 };
-use rand::Rng;
+
 #[derive(Resource, Component, Reflect, Default, Clone, Copy, Debug, Hash)]
 pub struct GridConfig {
     pub grid_width: u32,
@@ -25,26 +25,17 @@ pub struct Grid {
 }
 
 impl Grid {
-    /// Creates a new tile storage that is empty.
-    pub fn empty(size: GridConfig) -> Self {
+    pub fn empty(config: GridConfig) -> Self {
         Self {
-            cells: vec![None; size.count()],
-            config: size,
+            cells: vec![None; config.count()],
+            config,
         }
     }
 
-    /// Gets a tile entity for the given tile position, if an entity is associated with that tile
-    /// position.
-    ///
-    /// Panics if the given `cell_position` does lie within the extents of the underlying tile map.
     pub fn get(&self, cell_position: &cell::CellPosition) -> Option<Entity> {
         self.cells[cell_position.to_index(&self.config)]
     }
 
-    /// Gets a tile entity for the given tile position, if:
-    /// 1) the tile position lies within the underlying tile map's extents *and*
-    /// 2) there is an entity associated with that tile position;
-    /// otherwise it returns `None`.
     pub fn checked_get(&self, cell_position: &cell::CellPosition) -> Option<Entity> {
         if cell_position.within_map_bounds(&self.config) {
             self.cells[cell_position.to_index(&self.config)]
@@ -53,46 +44,28 @@ impl Grid {
         }
     }
 
-    /// Sets a tile entity for the given tile position.
-    ///
-    /// If there is an entity already at that position, it will be replaced.
-    ///
-    /// Panics if the given `cell_position` does lie within the extents of the underlying tile map.
     pub fn set(&mut self, cell_position: &cell::CellPosition, cell_entity: Entity) {
         self.cells[cell_position.to_index(&self.config)].replace(cell_entity);
     }
 
-    /// Sets a tile entity for the given tile position, if the tile position lies within the
-    /// underlying tile map's extents.
-    ///
-    /// If there is an entity already at that position, it will be replaced.
     pub fn checked_set(&mut self, cell_position: &cell::CellPosition, cell_entity: Entity) {
         if cell_position.within_map_bounds(&self.config) {
             self.cells[cell_position.to_index(&self.config)].replace(cell_entity);
         }
     }
 
-    /// Returns an iterator with all of the positions in the grid.
     pub fn iter(&self) -> impl Iterator<Item = &Option<Entity>> {
         self.cells.iter()
     }
 
-    /// Returns mutable iterator with all of the positions in the grid.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Option<Entity>> {
         self.cells.iter_mut()
     }
 
-    /// Remove entity at the given tile position, if there was one, leaving `None` in its place.
-    ///
-    /// Panics if the given `cell_position` does lie within the extents of the underlying tile map.
     pub fn remove(&mut self, cell_position: &cell::CellPosition) {
         self.cells[cell_position.to_index(&self.config)].take();
     }
 
-    /// Remove any stored entity at the given tile position, if the given `cell_position` does lie within
-    /// the extents of the underlying map.
-    ///
-    /// Otherwise, nothing is done.
     pub fn checked_remove(&mut self, cell_position: &cell::CellPosition) {
         if cell_position.within_map_bounds(&self.config) {
             self.cells[cell_position.to_index(&self.config)].take();
@@ -132,19 +105,12 @@ impl Plugin for GridPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_plugin(Material2dPlugin::<cell::CellMaterial>::default())
             .insert_resource(self.grid_config)
-            .add_startup_system(spawn_cells)
-            .add_system(selected_cells)
-            .add_system(update_cell);
+            .add_startup_system(spawn_cells);
     }
 }
 
 #[derive(Component)]
-struct LastUpdate(f64);
-
-#[derive(Debug, Default, Clone, Component)]
-pub struct UpdateCell {
-    pub color: Color,
-}
+pub struct LastUpdate(pub f64);
 
 fn spawn_cells(
     grid_config: ResMut<GridConfig>,
@@ -183,39 +149,4 @@ fn spawn_cells(
         })
         .insert(LastUpdate(0.0))
         .insert(Name::new("Grid"));
-}
-
-fn selected_cells(
-    time: Res<Time>,
-    mut commands: Commands,
-    mut grid_query: Query<(&mut LastUpdate, &mut Grid)>,
-) {
-    let current_time = time.elapsed_seconds_f64();
-    for (mut last_update, grid) in grid_query.iter_mut() {
-        let x = rand::thread_rng().gen_range(0..grid.config.grid_width as u32);
-        let y = rand::thread_rng().gen_range(0..grid.config.grid_height as u32);
-        if current_time - last_update.0 > 1.0 {
-            let cell_position = cell::CellPosition::new(x, y);
-            let cell_entity = grid.get(&cell_position).unwrap();
-            let mut current_cell = commands.entity(cell_entity);
-            current_cell.insert(UpdateCell {
-                color: Color::BLACK,
-            });
-            last_update.0 = current_time;
-        }
-    }
-}
-
-fn update_cell(
-    mut query: Query<(Entity, &Handle<cell::CellMaterial>, &UpdateCell)>,
-    mut materials: ResMut<Assets<cell::CellMaterial>>,
-    mut commands: Commands,
-) {
-    for (entity, material_handle, update) in query.iter_mut() {
-        let mut material = materials.get_mut(&material_handle).unwrap();
-
-        material.color = update.color;
-        let mut current_cell = commands.entity(entity);
-        current_cell.remove::<UpdateCell>();
-    }
 }
