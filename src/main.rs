@@ -1,15 +1,14 @@
 #[macro_use]
 extern crate itertools;
 use bevy::prelude::*;
-use bevy_inspector_egui::WorldInspectorPlugin;
 use movement::Movement;
 use rand::Rng;
 pub mod cell;
 pub mod grid;
 pub mod movement;
 
-pub const HEIGHT: f32 = 1024.0;
-pub const WIDTH: f32 = 1024.0;
+pub const HEIGHT: f32 = 1000.0;
+pub const WIDTH: f32 = 1000.0;
 
 #[derive(Debug, Default, Clone, Component)]
 pub struct UpdateCell {
@@ -43,30 +42,24 @@ fn main() {
         )
         .add_startup_system(setup)
         .add_event::<Movement>()
-        .insert_resource(movement::Actions::empty(24,24))
+        .insert_resource(movement::Actions::empty(20,20))
         .add_system(movement::keyboard_movement)
         .add_plugin(grid::GridPlugin::new(grid::GridConfig {
             window_height: HEIGHT as u32,
             window_width: WIDTH as u32,
-            grid_height: 24,
-            grid_width: 24,
+            grid_height: 20,
+            grid_width: 20,
         }))
         .add_system(movement::movement)
         .add_system(selected_cell)
         //.add_system(selected_cells)
         .add_system(update_cell)
-        .add_plugin(WorldInspectorPlugin::new())
         .run();
 }
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle {
         projection: OrthographicProjection {
-            left: -(WIDTH / 2.).floor(),
-            right: (WIDTH / 2.).floor(),
-            top: -(HEIGHT / 2.).floor(),
-            bottom: (HEIGHT / 2.).floor(),
-            scale: 1.35,
             ..Default::default()
         },
         ..Default::default()
@@ -90,7 +83,7 @@ fn selected_cell(
                 let cell_entity = grid.get(&cell_position).unwrap();
                 let mut current_cell = commands.entity(cell_entity);
                 current_cell.insert(UpdateCell {
-                    color: Color::BLACK,
+                    color: Color::BISQUE,
                 });
             }
         }

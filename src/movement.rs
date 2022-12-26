@@ -1,7 +1,4 @@
-use bevy::{
-    prelude::{Component, EventReader, EventWriter, Input, KeyCode, Query, Res, Resource, Vec2},
-    reflect::Reflect,
-};
+use bevy::prelude::{Component, EventReader, EventWriter, Input, KeyCode, Query, Res, Resource};
 use ndarray::{prelude::*, Slice};
 
 use crate::{cell::CellPosition, Agent};
@@ -83,7 +80,6 @@ impl Actions {
         let xe = (xs + 3) as usize;
         let ye = (ys + 3) as usize;
         let action = self.action_grid.slice(s![xs..xe, ys..ye]);
-        println!("{:?}", action);
         Shifts::from(action.to_owned())
     }
 }
@@ -94,17 +90,11 @@ pub fn keyboard_movement(
 ) {
     if keyboard_input.just_pressed(KeyCode::Q) {
         movement_event.send(Movement::new(Direction::LEFT));
-    }
-
-    if keyboard_input.just_pressed(KeyCode::D) {
+    } else if keyboard_input.just_pressed(KeyCode::D) {
         movement_event.send(Movement::new(Direction::RIGHT));
-    }
-
-    if keyboard_input.just_pressed(KeyCode::Z) {
+    } else if keyboard_input.just_pressed(KeyCode::Z) {
         movement_event.send(Movement::new(Direction::TOP));
-    }
-
-    if keyboard_input.just_pressed(KeyCode::S) {
+    } else if keyboard_input.just_pressed(KeyCode::S) {
         movement_event.send(Movement::new(Direction::BOTTOM));
     }
 }
@@ -117,29 +107,18 @@ pub fn movement(
     for dir in movement_event.iter() {
         for (_agent, mut position) in agent_query.iter_mut() {
             let shifts = actions.get_shifts(position.x as u8, position.y as u8);
-            println!("{:?}", shifts.top);
-            println!("{:?}", shifts.left);
-            println!("{:?}", shifts.bottom);
-            println!("{:?}", shifts.right);
             match dir.direction {
                 Direction::TOP => {
                     position.y -= shifts.top as u32;
-                    println!("{:?}", position);
                 }
                 Direction::LEFT => {
                     position.x -= shifts.left as u32;
-                    println!("{:?}", position);
-
                 }
                 Direction::BOTTOM => {
                     position.y += shifts.bottom as u32;
-                    println!("{:?}", position);
-
                 }
                 Direction::RIGHT => {
                     position.x += shifts.right as u32;
-                    println!("{:?}", position);
-
                 }
             }
         }

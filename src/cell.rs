@@ -36,13 +36,15 @@ impl CellPosition {
             window_height,
         } = grid_config;
 
-        let size_x = (window_width / grid_width) as f32;
-        let size_y = (window_height / grid_height) as f32;
-        let left = ((window_width / 2) as f32 - (size_x / 2.)) as f32;
-        let top = ((window_height / 2) as f32 - (size_y / 2.)) as f32;
+        let size_x = (*window_width / *grid_width) as f32;
+        let size_y = (*window_height / *grid_height) as f32;
+        let left = (*window_width as f32 / 2.)  - (size_x / 2.);
+        let top = (*window_height as f32 / 2.) - (size_y / 2.);
+        //let left = (window_width / 2) as f32;
+        //let top = (window_height / 2) as f32;
         (
             (size_x * self.x as f32) - left,
-            (grid_height + 0) as f32 - ((size_y * self.y as f32) - top),
+            0.0 - ((size_y * self.y as f32) - top),
         )
     }
 
