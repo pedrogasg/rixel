@@ -42,7 +42,7 @@ fn main() {
         )
         .add_startup_system(setup)
         .add_event::<Movement>()
-        .insert_resource(movement::Actions::empty(20,20))
+        .insert_resource(movement::Actions::empty(20, 20))
         .add_system(movement::keyboard_movement)
         .add_plugin(grid::GridPlugin::new(grid::GridConfig {
             window_height: HEIGHT as u32,
@@ -50,6 +50,7 @@ fn main() {
             grid_height: 20,
             grid_width: 20,
         }))
+
         .add_system(movement::movement)
         .add_system(selected_cell)
         //.add_system(selected_cells)
@@ -71,6 +72,7 @@ fn setup(mut commands: Commands) {
 }
 
 
+
 fn selected_cell(
     mut commands: Commands,
     mut grid_query: Query<&mut grid::Grid>,
@@ -79,33 +81,12 @@ fn selected_cell(
     for grid in grid_query.iter_mut() {
         for (_agent, cell_position) in agent_query.iter_mut() {
             if cell_position.within_map_bounds(&grid.config) {
-                
                 let cell_entity = grid.get(&cell_position).unwrap();
                 let mut current_cell = commands.entity(cell_entity);
                 current_cell.insert(UpdateCell {
                     color: Color::BISQUE,
                 });
             }
-        }
-    }
-}
-fn selected_cells(
-    time: Res<Time>,
-    mut commands: Commands,
-    mut grid_query: Query<(&mut grid::LastUpdate, &mut grid::Grid)>,
-) {
-    let current_time = time.elapsed_seconds_f64();
-    for (mut last_update, grid) in grid_query.iter_mut() {
-        let x = rand::thread_rng().gen_range(0..grid.config.grid_width as u32);
-        let y = rand::thread_rng().gen_range(0..grid.config.grid_height as u32);
-        if current_time - last_update.0 > 1.0 {
-            let cell_position = cell::CellPosition::new(x, y);
-            let cell_entity = grid.get(&cell_position).unwrap();
-            let mut current_cell = commands.entity(cell_entity);
-            current_cell.insert(UpdateCell {
-                color: Color::BLACK,
-            });
-            last_update.0 = current_time;
         }
     }
 }

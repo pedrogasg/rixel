@@ -1,5 +1,6 @@
 use bevy::prelude::{Component, EventReader, EventWriter, Input, KeyCode, Query, Res, Resource};
 use ndarray::{prelude::*, Slice};
+use rand::Rng;
 
 use crate::{cell::CellPosition, Agent};
 
@@ -55,6 +56,7 @@ impl From<Array2<u8>> for Shifts {
 }
 #[derive(Resource, Component, Default, Clone, Debug, Hash)]
 pub struct Actions {
+    pub grid: Array<u8, Dim<[usize; 2]>>,
     pub action_grid: Array<u8, Dim<[usize; 2]>>,
 }
 
@@ -66,12 +68,31 @@ impl Actions {
         original_grid.slice_axis_inplace(Axis(0), Slice::from(1..x + 1));
         original_grid.slice_axis_inplace(Axis(1), Slice::from(1..y + 1));
         original_grid.assign(&grid);
-        Self { action_grid }
+        Self { grid, action_grid }
     }
 
     pub fn empty(height: u32, width: u32) -> Self {
-        let base = Array2::<u8>::ones(Dim([height as usize, width as usize]));
+        let mut base = Array2::<u8>::ones(Dim([height as usize, width as usize]));
+
+        let max = (height * width) / 10;
+        for _ in 0..max {
+            let x = rand::thread_rng().gen_range(0..height) as usize;
+            let y = rand::thread_rng().gen_range(0..width) as usize;
+            base[[x, y]] = 0;
+        }
         Actions::new(base)
+    }
+
+    pub fn indices_of(&self, to_find: u8) -> impl Iterator<Item = (usize, usize)> + '_ {
+        self.grid
+            .indexed_iter()
+            .filter_map(move |(index, &value)| (value == to_find).then(|| index))
+    }
+
+    pub fn get_walls(&self) -> Vec<CellPosition> {
+        self.indices_of(0)
+            .map(|(i, j)| CellPosition::new(i as u32, j as u32))
+            .collect::<Vec<_>>()
     }
 
     pub fn get_shifts(&self, x: u8, y: u8) -> Shifts {

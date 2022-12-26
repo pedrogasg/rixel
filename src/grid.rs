@@ -1,4 +1,4 @@
-use crate::cell;
+use crate::{cell, movement, UpdateCell};
 use bevy::{
     prelude::*,
     sprite::{Material2dPlugin, MaterialMesh2dBundle},
@@ -105,7 +105,8 @@ impl Plugin for GridPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_plugin(Material2dPlugin::<cell::CellMaterial>::default())
             .insert_resource(self.grid_config)
-            .add_startup_system(spawn_cells);
+            .add_startup_system_to_stage(StartupStage::Startup, spawn_cells)
+            .add_startup_system_to_stage(StartupStage::PostStartup, adding_walls);
     }
 }
 
@@ -149,4 +150,22 @@ fn spawn_cells(
         })
         .insert(LastUpdate(0.0))
         .insert(Name::new("Grid"));
+}
+
+fn adding_walls(
+    mut commands: Commands,
+    mut grid_query: Query<&mut Grid>,
+    actions: Res<movement::Actions>,
+) {
+    for grid in grid_query.iter_mut() {
+        for cell_position in actions.get_walls().iter() {
+            if cell_position.within_map_bounds(&grid.config) {
+                let cell_entity = grid.get(&cell_position).unwrap();
+                let mut current_cell = commands.entity(cell_entity);
+                current_cell.insert(UpdateCell {
+                    color: Color::VIOLET,
+                });
+            }
+        }
+    }
 }
