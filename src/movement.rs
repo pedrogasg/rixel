@@ -64,10 +64,18 @@ impl Actions {
     pub fn new(grid: Array<u8, Dim<[usize; 2]>>) -> Self {
         let (x, y) = grid.dim();
         let mut action_grid = Array2::<u8>::zeros((x + 2, y + 2));
+        let mut movement_grid = Array2::<u8>::ones((x, y));
+
+        grid.indexed_iter()
+            .filter_map(|(index, &value)| (value == 0).then(|| index))
+            .for_each(|(x, y)| {
+                movement_grid[[x, y]] = 0;
+            });
+
         let mut original_grid = action_grid.view_mut();
         original_grid.slice_axis_inplace(Axis(0), Slice::from(1..x + 1));
         original_grid.slice_axis_inplace(Axis(1), Slice::from(1..y + 1));
-        original_grid.assign(&grid);
+        original_grid.assign(&movement_grid);
         Self { grid, action_grid }
     }
 
@@ -80,6 +88,11 @@ impl Actions {
             let y = rand::thread_rng().gen_range(0..width) as usize;
             base[[x, y]] = 0;
         }
+        for _ in 0..max {
+            let x = rand::thread_rng().gen_range(0..height) as usize;
+            let y = rand::thread_rng().gen_range(0..width) as usize;
+            base[[x, y]] = 2;
+        }
         Actions::new(base)
     }
 
@@ -91,6 +104,12 @@ impl Actions {
 
     pub fn get_walls(&self) -> Vec<CellPosition> {
         self.indices_of(0)
+            .map(|(i, j)| CellPosition::new(i as u32, j as u32))
+            .collect::<Vec<_>>()
+    }
+
+    pub fn get_objectives(&self) -> Vec<CellPosition> {
+        self.indices_of(2)
             .map(|(i, j)| CellPosition::new(i as u32, j as u32))
             .collect::<Vec<_>>()
     }

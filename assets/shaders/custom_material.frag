@@ -15,5 +15,9 @@ void main() {
     vec2 st = v_Uv;
 
     float  d = length( max(abs(st)-.8,0.) );
-    o_Target = vec4(Color.xyz-vec3( smoothstep(.1,.15,d)* smoothstep(.9,.1,d)) ,Color.w);
+    if(Color.r + Color.g + Color.b > 1.0){
+        o_Target = vec4(Color.xyz-vec3( smoothstep(.1,.15,d)* smoothstep(.9,.1,d)) ,Color.w);
+    }else {
+        o_Target = vec4(Color.xyz+vec3( smoothstep(.1,.15,d)* smoothstep(.1,.9,d)) ,Color.w);
+    }
 }

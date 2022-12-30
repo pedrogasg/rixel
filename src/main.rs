@@ -2,7 +2,6 @@
 extern crate itertools;
 use bevy::prelude::*;
 use movement::Movement;
-use rand::Rng;
 pub mod cell;
 pub mod grid;
 pub mod movement;
@@ -66,9 +65,7 @@ fn setup(mut commands: Commands) {
         ..Default::default()
     });
 
-    commands
-        .spawn(Agent { id: 1 })
-        .insert(cell::CellPosition::new(0, 0));
+
 }
 
 
@@ -84,7 +81,7 @@ fn selected_cell(
                 let cell_entity = grid.get(&cell_position).unwrap();
                 let mut current_cell = commands.entity(cell_entity);
                 current_cell.insert(UpdateCell {
-                    color: Color::BISQUE,
+                    color: Color::ALICE_BLUE,
                 });
             }
         }

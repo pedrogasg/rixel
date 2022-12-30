@@ -1,4 +1,4 @@
-use crate::{cell, movement, UpdateCell};
+use crate::{cell, movement, Agent, UpdateCell};
 use bevy::{
     prelude::*,
     sprite::{Material2dPlugin, MaterialMesh2dBundle},
@@ -106,7 +106,8 @@ impl Plugin for GridPlugin {
         app.add_plugin(Material2dPlugin::<cell::CellMaterial>::default())
             .insert_resource(self.grid_config)
             .add_startup_system_to_stage(StartupStage::Startup, spawn_cells)
-            .add_startup_system_to_stage(StartupStage::PostStartup, adding_walls);
+            .add_startup_system_to_stage(StartupStage::PostStartup, adding_variety)
+            .add_system(update_agents);
     }
 }
 
@@ -150,9 +151,24 @@ fn spawn_cells(
         })
         .insert(LastUpdate(0.0))
         .insert(Name::new("Grid"));
+
+    let cell_position = cell::CellPosition::new(0, 0);
+    let handle = materials.add(cell::CellMaterial::new(Color::VIOLET));
+    let (x, y) = cell_position.to_screen_position(&grid_config);
+
+    commands
+        .spawn(MaterialMesh2dBundle {
+            mesh: meshes.add(cell::Cell::new(size).into()).into(),
+            material: handle,
+            transform: Transform::from_xyz(x, y, 1.),
+            ..default()
+        })
+        .insert(Agent { id: 1 })
+        .insert(cell_position)
+        .insert(Name::new("Agent 1"));
 }
 
-fn adding_walls(
+fn adding_variety(
     mut commands: Commands,
     mut grid_query: Query<&mut Grid>,
     actions: Res<movement::Actions>,
@@ -163,8 +179,32 @@ fn adding_walls(
                 let cell_entity = grid.get(&cell_position).unwrap();
                 let mut current_cell = commands.entity(cell_entity);
                 current_cell.insert(UpdateCell {
-                    color: Color::VIOLET,
+                    color: Color::BLACK,
                 });
+            }
+        }
+        for cell_position in actions.get_objectives().iter() {
+            if cell_position.within_map_bounds(&grid.config) {
+                let cell_entity = grid.get(&cell_position).unwrap();
+                let mut current_cell = commands.entity(cell_entity);
+                current_cell.insert(UpdateCell {
+                    color: Color::BISQUE,
+                });
+            }
+        }
+    }
+}
+
+fn update_agents(
+    grid_query: Query<&mut Grid>,
+    mut agent_query: Query<(&Agent, &cell::CellPosition, &mut Transform)>,
+) {
+    for grid in grid_query.iter() {
+        for (_agent, cell_position, mut transform) in agent_query.iter_mut() {
+            if cell_position.within_map_bounds(&grid.config) {
+                let (x, y) = cell_position.to_screen_position(&grid.config);
+                transform.translation.x = x;
+                transform.translation.y = y;
             }
         }
     }
