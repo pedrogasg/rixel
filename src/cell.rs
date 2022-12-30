@@ -23,27 +23,33 @@ impl CellPosition {
     pub fn new(x: u32, y: u32) -> Self {
         Self { x, y }
     }
-    /// Converts a tile position (2D) into an index in a flattened vector (1D), assuming the
-    /// tile position lies in a tilemap of the specified size.
+
     pub fn to_index(&self, grid_config: &grid::GridConfig) -> usize {
         ((self.y * grid_config.grid_width) + self.x) as usize
     }
 
     pub fn to_screen_position(&self, grid_config: &grid::GridConfig) -> (f32, f32) {
-        match grid_config {
-            GridConfig{grid_width, grid_height, window_width, window_height} => {
-                let size_x = (window_width / grid_width) as f32;
-                let size_y = (window_height/ grid_height)  as f32;
-                let left = ((window_width / 2) as f32 - (size_x / 2.)) as f32;
-                let top = ((window_height / 2) as f32 - (size_y / 2.)) as f32;
-                ((size_x * self.x as f32) - left, (size_x * self.y as f32) - top)
-            }
-        }
+        let GridConfig {
+            grid_width,
+            grid_height,
+            window_width,
+            window_height,
+        } = grid_config;
+
+        let size_x = (*window_width / *grid_width) as f32;
+        let size_y = (*window_height / *grid_height) as f32;
+        let left = (*window_width as f32 / 2.)  - (size_x / 2.);
+        let top = (*window_height as f32 / 2.) - (size_y / 2.);
+        //let left = (window_width / 2) as f32;
+        //let top = (window_height / 2) as f32;
+        (
+            (size_x * self.x as f32) - left,
+            0.0 - ((size_y * self.y as f32) - top),
+        )
     }
 
-    /// Checks to see if `self` lies within a tilemap of the specified size.
-    pub fn within_map_bounds(&self, grid_size: &grid::GridConfig) -> bool {
-        self.x < grid_size.grid_width && self.y < grid_size.grid_height
+    pub fn within_map_bounds(&self, grid_config: &grid::GridConfig) -> bool {
+        self.x < grid_config.grid_width && self.y < grid_config.grid_height
     }
 }
 
@@ -77,7 +83,6 @@ impl From<&CellPosition> for Vec2 {
     }
 }
 
-/// A regular polygon in the `XY` plane
 #[derive(Debug, Copy, Clone)]
 pub struct Cell {
     size: f32,
@@ -90,7 +95,6 @@ impl Default for Cell {
 }
 
 impl Cell {
-    /// Creates a regular polygon in the `XY` plane
     pub fn new(size: f32) -> Self {
         Self { size }
     }
