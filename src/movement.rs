@@ -109,7 +109,7 @@ impl Actions {
     }
 
     pub fn get_objectives(&self) -> Vec<CellPosition> {
-        self.indices_of(2)
+        self.indices_of(1)
             .map(|(i, j)| CellPosition::new(i as u32, j as u32))
             .collect::<Vec<_>>()
     }

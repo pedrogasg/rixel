@@ -81,15 +81,10 @@ pub struct GridBundle {
 
 pub struct GridPlugin;
 
-
 impl Plugin for GridPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_plugin(Material2dPlugin::<cell::CellMaterial>::default())
-            .add_system_set(
-                SystemSet::on_enter(AppState::InGame)
-                    .with_system(spawn_cells)
-                    .with_system(adding_variety),
-            )
+            .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(spawn_cells))
             .add_system_set(SystemSet::on_update(AppState::InGame).with_system(update_agents));
     }
 }
@@ -102,6 +97,7 @@ fn spawn_cells(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<cell::CellMaterial>>,
+    actions: Res<movement::Actions>,
 ) {
     let grid_entity = commands.spawn_empty().id();
 
@@ -124,6 +120,26 @@ fn spawn_cells(
             .id();
 
         grid.set(&cell_position, cell_id);
+    }
+
+    for cell_position in actions.get_walls().iter() {
+        if cell_position.within_map_bounds(&grid_config) {
+            let cell_entity = grid.get(&cell_position).unwrap();
+            let mut current_cell = commands.entity(cell_entity);
+            current_cell.insert(UpdateCell {
+                color: Color::BLACK,
+            });
+        }
+    }
+
+    for cell_position in actions.get_objectives().iter() {
+        if cell_position.within_map_bounds(&grid_config) {
+            let cell_entity = grid.get(&cell_position).unwrap();
+            let mut current_cell = commands.entity(cell_entity);
+            current_cell.insert(UpdateCell {
+                color: Color::BISQUE,
+            });
+        }
     }
 
     commands
@@ -149,33 +165,6 @@ fn spawn_cells(
         .insert(Agent { id: 1 })
         .insert(cell_position)
         .insert(Name::new("Agent 1"));
-}
-
-fn adding_variety(
-    mut commands: Commands,
-    mut grid_query: Query<&mut Grid>,
-    actions: Res<movement::Actions>,
-) {
-    for grid in grid_query.iter_mut() {
-        for cell_position in actions.get_walls().iter() {
-            if cell_position.within_map_bounds(&grid.config) {
-                let cell_entity = grid.get(&cell_position).unwrap();
-                let mut current_cell = commands.entity(cell_entity);
-                current_cell.insert(UpdateCell {
-                    color: Color::BLACK,
-                });
-            }
-        }
-        for cell_position in actions.get_objectives().iter() {
-            if cell_position.within_map_bounds(&grid.config) {
-                let cell_entity = grid.get(&cell_position).unwrap();
-                let mut current_cell = commands.entity(cell_entity);
-                current_cell.insert(UpdateCell {
-                    color: Color::BISQUE,
-                });
-            }
-        }
-    }
 }
 
 fn update_agents(

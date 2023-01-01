@@ -104,11 +104,6 @@ fn setup_game(
     let test = serde_json::from_str::<TestStruct>(&file_content).unwrap();
     println!("Name of the test {:?}", test.name);
     println!("Serde encode {:?} => {:?}", test, file_content);
-    commands.spawn(SpriteBundle {
-        texture: asset_server.load("branding/icon.png"),
-        ..default()
-    });
-
     let (grid_width, grid_height) = test.grid.dim();
 
     commands.insert_resource(grid::GridConfig {
