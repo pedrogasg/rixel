@@ -1,4 +1,4 @@
-use crate::{cell, movement, Agent, UpdateCell};
+use crate::{cell, movement, Agent, AppState, UpdateCell};
 use bevy::{
     prelude::*,
     sprite::{Material2dPlugin, MaterialMesh2dBundle},
@@ -79,35 +79,18 @@ pub struct GridBundle {
     pub grid: Grid,
 }
 
-pub struct GridPlugin {
-    pub grid_config: GridConfig,
-}
+pub struct GridPlugin;
 
-impl Default for GridPlugin {
-    fn default() -> Self {
-        Self {
-            grid_config: GridConfig {
-                grid_width: 5,
-                grid_height: 5,
-                window_width: 1024,
-                window_height: 1024,
-            },
-        }
-    }
-}
-impl GridPlugin {
-    pub fn new(grid_config: GridConfig) -> Self {
-        Self { grid_config }
-    }
-}
 
 impl Plugin for GridPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_plugin(Material2dPlugin::<cell::CellMaterial>::default())
-            .insert_resource(self.grid_config)
-            .add_startup_system_to_stage(StartupStage::Startup, spawn_cells)
-            .add_startup_system_to_stage(StartupStage::PostStartup, adding_variety)
-            .add_system(update_agents);
+            .add_system_set(
+                SystemSet::on_enter(AppState::InGame)
+                    .with_system(spawn_cells)
+                    .with_system(adding_variety),
+            )
+            .add_system_set(SystemSet::on_update(AppState::InGame).with_system(update_agents));
     }
 }
 
@@ -123,7 +106,7 @@ fn spawn_cells(
     let grid_entity = commands.spawn_empty().id();
 
     let mut grid = Grid::empty(grid_config.clone());
-    let size = (grid_config.window_width / grid_config.grid_width) as f32;
+    let size = (grid_config.window_height / grid_config.grid_height) as f32;
     for (i, j) in iproduct!(0..grid_config.grid_width, 0..grid_config.grid_height) {
         let color = Color::ALICE_BLUE;
 
