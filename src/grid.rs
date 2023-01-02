@@ -1,4 +1,4 @@
-use crate::{cell, movement, Agent, UpdateCell};
+use crate::{cell, movement, Agent, AppState, UpdateCell};
 use bevy::{
     prelude::*,
     sprite::{Material2dPlugin, MaterialMesh2dBundle},
@@ -78,36 +78,19 @@ pub struct GridBundle {
     pub grid_size: GridConfig,
     pub grid: Grid,
 }
-
-pub struct GridPlugin {
-    pub grid_config: GridConfig,
+#[derive(Resource)]
+pub struct GridData {
+    pub grid_id: Entity,
 }
 
-impl Default for GridPlugin {
-    fn default() -> Self {
-        Self {
-            grid_config: GridConfig {
-                grid_width: 5,
-                grid_height: 5,
-                window_width: 1024,
-                window_height: 1024,
-            },
-        }
-    }
-}
-impl GridPlugin {
-    pub fn new(grid_config: GridConfig) -> Self {
-        Self { grid_config }
-    }
-}
+pub struct GridPlugin;
 
 impl Plugin for GridPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_plugin(Material2dPlugin::<cell::CellMaterial>::default())
-            .insert_resource(self.grid_config)
-            .add_startup_system_to_stage(StartupStage::Startup, spawn_cells)
-            .add_startup_system_to_stage(StartupStage::PostStartup, adding_variety)
-            .add_system(update_agents);
+            .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(spawn_cells))
+            .add_system_set(SystemSet::on_update(AppState::InGame).with_system(update_agents))
+            .add_system_set(SystemSet::on_exit(AppState::InGame).with_system(cleanup_game));
     }
 }
 
@@ -119,28 +102,74 @@ fn spawn_cells(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<cell::CellMaterial>>,
+    actions: Res<movement::Actions>,
 ) {
-    let grid_entity = commands.spawn_empty().id();
+    let mut parent_grid = commands.spawn_empty();
+
+    parent_grid.insert(SpatialBundle::default());
+
+    let grid_entity = parent_grid.id();
 
     let mut grid = Grid::empty(grid_config.clone());
-    let size = (grid_config.window_width / grid_config.grid_width) as f32;
-    for (i, j) in iproduct!(0..grid_config.grid_width, 0..grid_config.grid_height) {
-        let color = Color::ALICE_BLUE;
+    let x_size = (grid_config.window_width / grid_config.grid_width) as f32;
+    let y_size = (grid_config.window_height / grid_config.grid_height) as f32;
+    parent_grid.with_children(|parent| {
+        for (i, j) in iproduct!(0..grid_config.grid_width, 0..grid_config.grid_height) {
+            let color = Color::ALICE_BLUE;
 
-        let cell_position = cell::CellPosition::new(i, j);
-        let handle = materials.add(cell::CellMaterial::new(color));
-        let (x, y) = cell_position.to_screen_position(&grid_config);
-        let cell_id = commands
-            .spawn(MaterialMesh2dBundle {
-                mesh: meshes.add(cell::Cell::new(size).into()).into(),
-                material: handle,
-                transform: Transform::from_xyz(x, y, 0.),
-                ..default()
-            })
-            .insert(Name::new(format!("Cell {} {}", i, j)))
-            .id();
+            let cell_position = cell::CellPosition::new(i, j);
+            let handle = materials.add(cell::CellMaterial::new(color));
+            let (x, y) = cell_position.to_screen_position(&grid_config);
+            let cell_id = parent
+                .spawn(MaterialMesh2dBundle {
+                    mesh: meshes.add(cell::Cell::new(x_size, y_size).into()).into(),
+                    material: handle,
+                    transform: Transform::from_xyz(x, y, 0.),
+                    ..default()
+                })
+                .insert(Name::new(format!("Cell {} {}", i, j)))
+                .id();
 
-        grid.set(&cell_position, cell_id);
+            grid.set(&cell_position, cell_id);
+        }
+    });
+
+    parent_grid.with_children(|parent| {
+        for (id, cell_position) in actions.get_agents().iter().enumerate() {
+            let handle = materials.add(cell::CellMaterial::new(Color::VIOLET));
+            let (x, y) = cell_position.to_screen_position(&grid_config);
+
+            parent
+                .spawn(MaterialMesh2dBundle {
+                    mesh: meshes.add(cell::Cell::new(x_size, y_size).into()).into(),
+                    material: handle,
+                    transform: Transform::from_xyz(x, y, 1.),
+                    ..default()
+                })
+                .insert(Agent { id: id as u32 })
+                .insert(*cell_position)
+                .insert(Name::new(format!("Agent {}", id)));
+        }
+    });
+
+    for cell_position in actions.get_walls().iter() {
+        if cell_position.within_map_bounds(&grid_config) {
+            let cell_entity = grid.get(&cell_position).unwrap();
+            let mut current_cell = commands.entity(cell_entity);
+            current_cell.insert(UpdateCell {
+                color: Color::BLACK,
+            });
+        }
+    }
+
+    for cell_position in actions.get_objectives().iter() {
+        if cell_position.within_map_bounds(&grid_config) {
+            let cell_entity = grid.get(&cell_position).unwrap();
+            let mut current_cell = commands.entity(cell_entity);
+            current_cell.insert(UpdateCell {
+                color: Color::BISQUE,
+            });
+        }
     }
 
     commands
@@ -152,47 +181,9 @@ fn spawn_cells(
         .insert(LastUpdate(0.0))
         .insert(Name::new("Grid"));
 
-    let cell_position = cell::CellPosition::new(0, 0);
-    let handle = materials.add(cell::CellMaterial::new(Color::VIOLET));
-    let (x, y) = cell_position.to_screen_position(&grid_config);
-
-    commands
-        .spawn(MaterialMesh2dBundle {
-            mesh: meshes.add(cell::Cell::new(size).into()).into(),
-            material: handle,
-            transform: Transform::from_xyz(x, y, 1.),
-            ..default()
-        })
-        .insert(Agent { id: 1 })
-        .insert(cell_position)
-        .insert(Name::new("Agent 1"));
-}
-
-fn adding_variety(
-    mut commands: Commands,
-    mut grid_query: Query<&mut Grid>,
-    actions: Res<movement::Actions>,
-) {
-    for grid in grid_query.iter_mut() {
-        for cell_position in actions.get_walls().iter() {
-            if cell_position.within_map_bounds(&grid.config) {
-                let cell_entity = grid.get(&cell_position).unwrap();
-                let mut current_cell = commands.entity(cell_entity);
-                current_cell.insert(UpdateCell {
-                    color: Color::BLACK,
-                });
-            }
-        }
-        for cell_position in actions.get_objectives().iter() {
-            if cell_position.within_map_bounds(&grid.config) {
-                let cell_entity = grid.get(&cell_position).unwrap();
-                let mut current_cell = commands.entity(cell_entity);
-                current_cell.insert(UpdateCell {
-                    color: Color::BISQUE,
-                });
-            }
-        }
-    }
+    commands.insert_resource(GridData {
+        grid_id: grid_entity,
+    });
 }
 
 fn update_agents(
@@ -208,4 +199,11 @@ fn update_agents(
             }
         }
     }
+}
+
+fn cleanup_game(mut commands: Commands, grid_data: Res<GridData>) {
+    commands.entity(grid_data.grid_id).despawn_recursive();
+    commands.remove_resource::<GridData>();
+    commands.remove_resource::<GridConfig>();
+    commands.remove_resource::<movement::Actions>();
 }

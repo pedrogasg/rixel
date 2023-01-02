@@ -56,12 +56,12 @@ impl From<Array2<u8>> for Shifts {
 }
 #[derive(Resource, Component, Default, Clone, Debug, Hash)]
 pub struct Actions {
-    pub grid: Array<u8, Dim<[usize; 2]>>,
+    pub grid: Array<i8, Dim<[usize; 2]>>,
     pub action_grid: Array<u8, Dim<[usize; 2]>>,
 }
 
 impl Actions {
-    pub fn new(grid: Array<u8, Dim<[usize; 2]>>) -> Self {
+    pub fn new(grid: Array<i8, Dim<[usize; 2]>>) -> Self {
         let (x, y) = grid.dim();
         let mut action_grid = Array2::<u8>::zeros((x + 2, y + 2));
         let mut movement_grid = Array2::<u8>::ones((x, y));
@@ -80,7 +80,7 @@ impl Actions {
     }
 
     pub fn empty(height: u32, width: u32) -> Self {
-        let mut base = Array2::<u8>::ones(Dim([height as usize, width as usize]));
+        let mut base = Array2::<i8>::ones(Dim([height as usize, width as usize]));
 
         let max = (height * width) / 10;
         for _ in 0..max {
@@ -96,7 +96,7 @@ impl Actions {
         Actions::new(base)
     }
 
-    pub fn indices_of(&self, to_find: u8) -> impl Iterator<Item = (usize, usize)> + '_ {
+    pub fn indices_of(&self, to_find: i8) -> impl Iterator<Item = (usize, usize)> + '_ {
         self.grid
             .indexed_iter()
             .filter_map(move |(index, &value)| (value == to_find).then(|| index))
@@ -109,7 +109,13 @@ impl Actions {
     }
 
     pub fn get_objectives(&self) -> Vec<CellPosition> {
-        self.indices_of(2)
+        self.indices_of(1)
+            .map(|(i, j)| CellPosition::new(i as u32, j as u32))
+            .collect::<Vec<_>>()
+    }
+
+    pub fn get_agents(&self) -> Vec<CellPosition> {
+        self.indices_of(-1)
             .map(|(i, j)| CellPosition::new(i as u32, j as u32))
             .collect::<Vec<_>>()
     }

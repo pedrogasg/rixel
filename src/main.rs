@@ -1,13 +1,21 @@
 #[macro_use]
 extern crate itertools;
 use bevy::prelude::*;
-use movement::Movement;
+use ndarray::prelude::*;
+use serde::Deserialize;
+use std::fs;
 pub mod cell;
 pub mod grid;
+pub mod menu;
 pub mod movement;
-
 pub const HEIGHT: f32 = 1000.0;
 pub const WIDTH: f32 = 1000.0;
+
+#[derive(Debug, Deserialize)]
+struct TestStruct {
+    name: String,
+    grid: Array2<i8>,
+}
 
 #[derive(Debug, Default, Clone, Component)]
 pub struct UpdateCell {
@@ -39,36 +47,85 @@ fn main() {
                     ..Default::default()
                 }),
         )
+        .add_state(AppState::Menu)
+        .init_resource::<MainLayout>()
         .add_startup_system(setup)
-        .add_event::<Movement>()
-        .insert_resource(movement::Actions::empty(20, 20))
-        .add_system(movement::keyboard_movement)
-        .add_plugin(grid::GridPlugin::new(grid::GridConfig {
-            window_height: HEIGHT as u32,
-            window_width: WIDTH as u32,
-            grid_height: 20,
-            grid_width: 20,
-        }))
-
-        .add_system(movement::movement)
-        .add_system(selected_cell)
-        //.add_system(selected_cells)
-        .add_system(update_cell)
+        .add_plugin(menu::LayoutsMenu)
+        .add_event::<movement::Movement>()
+        .add_system_set(SystemSet::on_enter(AppState::Loading).with_system(setup_game))
+        .add_system_set(SystemSet::on_update(AppState::Loading).with_system(game_loaded))
+        .add_system_set(
+            SystemSet::on_update(AppState::InGame)
+                .with_system(movement::keyboard_movement)
+                .with_system(movement::movement)
+                .with_system(selected_cell)
+                .with_system(update_cell)
+                .with_system(keyboard_return),
+        )
+        .add_plugin(grid::GridPlugin)
         .run();
+}
+
+#[derive(Resource)]
+struct MainLayout {
+    path: String,
+}
+
+impl Default for MainLayout {
+    fn default() -> Self {
+        Self {
+            path: "./assets/layouts/capsuleClassic.json".to_string(),
+        }
+    }
+}
+
+#[derive(Component, Default)]
+struct AssetPath {
+    path: String,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+enum AppState {
+    Menu,
+    Loading,
+    InGame,
 }
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle {
         projection: OrthographicProjection {
+            scale: 1.35,
             ..Default::default()
         },
         ..Default::default()
     });
+}
+fn setup_game(mut commands: Commands, main_layout: Res<MainLayout>) {
+    let file_content = fs::read_to_string(main_layout.path.clone()).unwrap();
+    let test = serde_json::from_str::<TestStruct>(&file_content).unwrap();
+    println!("Name of the test {:?}", test.name);
+    println!("Serde encode {:?} => {:?}", test, file_content);
+    let (grid_width, grid_height) = test.grid.dim();
 
+    commands.insert_resource(grid::GridConfig {
+        window_height: HEIGHT as u32,
+        window_width: WIDTH as u32,
+        grid_height: grid_height as u32,
+        grid_width: grid_width as u32,
+    });
 
+    commands.insert_resource(movement::Actions::new(test.grid));
 }
 
+fn game_loaded(mut state: ResMut<State<AppState>>) {
+    state.set(AppState::InGame).unwrap();
+}
 
+fn keyboard_return(mut state: ResMut<State<AppState>>, keyboard_input: Res<Input<KeyCode>>) {
+    if keyboard_input.just_pressed(KeyCode::Escape) {
+        state.set(AppState::Menu).unwrap();
+    }
+}
 
 fn selected_cell(
     mut commands: Commands,

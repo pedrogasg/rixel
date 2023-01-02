@@ -38,7 +38,7 @@ impl CellPosition {
 
         let size_x = (*window_width / *grid_width) as f32;
         let size_y = (*window_height / *grid_height) as f32;
-        let left = (*window_width as f32 / 2.)  - (size_x / 2.);
+        let left = (*window_width as f32 / 2.) - (size_x / 2.);
         let top = (*window_height as f32 / 2.) - (size_y / 2.);
         //let left = (window_width / 2) as f32;
         //let top = (window_height / 2) as f32;
@@ -85,18 +85,22 @@ impl From<&CellPosition> for Vec2 {
 
 #[derive(Debug, Copy, Clone)]
 pub struct Cell {
-    size: f32,
+    x_size: f32,
+    y_size: f32,
 }
 
 impl Default for Cell {
     fn default() -> Self {
-        Self { size: 0.5 }
+        Self {
+            x_size: 0.5,
+            y_size: 0.5,
+        }
     }
 }
 
 impl Cell {
-    pub fn new(size: f32) -> Self {
-        Self { size }
+    pub fn new(x_size: f32, y_size: f32) -> Self {
+        Self { x_size, y_size }
     }
 
     pub const ATTRIBUTE_PROPS: MeshVertexAttribute =
@@ -105,14 +109,15 @@ impl Cell {
 
 impl From<Cell> for Mesh {
     fn from(cell: Cell) -> Self {
-        let Cell { size } = cell;
-        let radius = size / 2.0 as f32;
+        let Cell { x_size, y_size } = cell;
+        let x_radius = x_size / 2.0 as f32;
+        let y_radius = y_size / 2.0 as f32;
         let positions = vec![
             [0.0, 0.0, 0.0],
-            [radius, radius, 0.0],
-            [radius, -radius, 0.0],
-            [-radius, -radius, 0.0],
-            [-radius, radius, 0.0],
+            [x_radius, y_radius, 0.0],
+            [x_radius, -y_radius, 0.0],
+            [-x_radius, -y_radius, 0.0],
+            [-x_radius, y_radius, 0.0],
         ];
         let normals = vec![
             [0.0, 0.0, 1.0],
