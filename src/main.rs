@@ -59,7 +59,8 @@ fn main() {
                 .with_system(movement::keyboard_movement)
                 .with_system(movement::movement)
                 .with_system(selected_cell)
-                .with_system(update_cell),
+                .with_system(update_cell)
+                .with_system(keyboard_return),
         )
         .add_plugin(grid::GridPlugin)
         .run();
@@ -91,9 +92,14 @@ enum AppState {
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle {
+        projection: OrthographicProjection {
+            scale: 1.35,
+            ..Default::default()
+        },
+        ..Default::default()
+    });
 }
-
 fn setup_game(mut commands: Commands, main_layout: Res<MainLayout>) {
     let file_content = fs::read_to_string(main_layout.path.clone()).unwrap();
     let test = serde_json::from_str::<TestStruct>(&file_content).unwrap();
@@ -113,6 +119,12 @@ fn setup_game(mut commands: Commands, main_layout: Res<MainLayout>) {
 
 fn game_loaded(mut state: ResMut<State<AppState>>) {
     state.set(AppState::InGame).unwrap();
+}
+
+fn keyboard_return(mut state: ResMut<State<AppState>>, keyboard_input: Res<Input<KeyCode>>) {
+    if keyboard_input.just_pressed(KeyCode::Escape) {
+        state.set(AppState::Menu).unwrap();
+    }
 }
 
 fn selected_cell(

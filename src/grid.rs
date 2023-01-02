@@ -78,6 +78,10 @@ pub struct GridBundle {
     pub grid_size: GridConfig,
     pub grid: Grid,
 }
+#[derive(Resource)]
+pub struct GridData {
+    pub grid_id: Entity,
+}
 
 pub struct GridPlugin;
 
@@ -85,7 +89,8 @@ impl Plugin for GridPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_plugin(Material2dPlugin::<cell::CellMaterial>::default())
             .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(spawn_cells))
-            .add_system_set(SystemSet::on_update(AppState::InGame).with_system(update_agents));
+            .add_system_set(SystemSet::on_update(AppState::InGame).with_system(update_agents))
+            .add_system_set(SystemSet::on_exit(AppState::InGame).with_system(cleanup_game));
     }
 }
 
@@ -99,29 +104,53 @@ fn spawn_cells(
     mut materials: ResMut<Assets<cell::CellMaterial>>,
     actions: Res<movement::Actions>,
 ) {
-    let grid_entity = commands.spawn_empty().id();
+    let mut parent_grid = commands.spawn_empty();
+
+    parent_grid.insert(SpatialBundle::default());
+
+    let grid_entity = parent_grid.id();
 
     let mut grid = Grid::empty(grid_config.clone());
     let x_size = (grid_config.window_width / grid_config.grid_width) as f32;
     let y_size = (grid_config.window_height / grid_config.grid_height) as f32;
-    for (i, j) in iproduct!(0..grid_config.grid_width, 0..grid_config.grid_height) {
-        let color = Color::ALICE_BLUE;
+    parent_grid.with_children(|parent| {
+        for (i, j) in iproduct!(0..grid_config.grid_width, 0..grid_config.grid_height) {
+            let color = Color::ALICE_BLUE;
 
-        let cell_position = cell::CellPosition::new(i, j);
-        let handle = materials.add(cell::CellMaterial::new(color));
-        let (x, y) = cell_position.to_screen_position(&grid_config);
-        let cell_id = commands
-            .spawn(MaterialMesh2dBundle {
-                mesh: meshes.add(cell::Cell::new(x_size, y_size).into()).into(),
-                material: handle,
-                transform: Transform::from_xyz(x, y, 0.),
-                ..default()
-            })
-            .insert(Name::new(format!("Cell {} {}", i, j)))
-            .id();
+            let cell_position = cell::CellPosition::new(i, j);
+            let handle = materials.add(cell::CellMaterial::new(color));
+            let (x, y) = cell_position.to_screen_position(&grid_config);
+            let cell_id = parent
+                .spawn(MaterialMesh2dBundle {
+                    mesh: meshes.add(cell::Cell::new(x_size, y_size).into()).into(),
+                    material: handle,
+                    transform: Transform::from_xyz(x, y, 0.),
+                    ..default()
+                })
+                .insert(Name::new(format!("Cell {} {}", i, j)))
+                .id();
 
-        grid.set(&cell_position, cell_id);
-    }
+            grid.set(&cell_position, cell_id);
+        }
+    });
+
+    parent_grid.with_children(|parent| {
+        for (id, cell_position) in actions.get_agents().iter().enumerate() {
+            let handle = materials.add(cell::CellMaterial::new(Color::VIOLET));
+            let (x, y) = cell_position.to_screen_position(&grid_config);
+
+            parent
+                .spawn(MaterialMesh2dBundle {
+                    mesh: meshes.add(cell::Cell::new(x_size, y_size).into()).into(),
+                    material: handle,
+                    transform: Transform::from_xyz(x, y, 1.),
+                    ..default()
+                })
+                .insert(Agent { id: id as u32 })
+                .insert(*cell_position)
+                .insert(Name::new(format!("Agent {}", id)));
+        }
+    });
 
     for cell_position in actions.get_walls().iter() {
         if cell_position.within_map_bounds(&grid_config) {
@@ -152,21 +181,9 @@ fn spawn_cells(
         .insert(LastUpdate(0.0))
         .insert(Name::new("Grid"));
 
-    for (id, cell_position) in actions.get_agents().iter().enumerate() {
-        let handle = materials.add(cell::CellMaterial::new(Color::VIOLET));
-        let (x, y) = cell_position.to_screen_position(&grid_config);
-
-        commands
-            .spawn(MaterialMesh2dBundle {
-                mesh: meshes.add(cell::Cell::new(x_size, y_size).into()).into(),
-                material: handle,
-                transform: Transform::from_xyz(x, y, 1.),
-                ..default()
-            })
-            .insert(Agent { id: id as u32 })
-            .insert(*cell_position)
-            .insert(Name::new(format!("Agent {}", id)));
-    }
+    commands.insert_resource(GridData {
+        grid_id: grid_entity,
+    });
 }
 
 fn update_agents(
@@ -182,4 +199,11 @@ fn update_agents(
             }
         }
     }
+}
+
+fn cleanup_game(mut commands: Commands, grid_data: Res<GridData>) {
+    commands.entity(grid_data.grid_id).despawn_recursive();
+    commands.remove_resource::<GridData>();
+    commands.remove_resource::<GridConfig>();
+    commands.remove_resource::<movement::Actions>();
 }
