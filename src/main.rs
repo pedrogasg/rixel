@@ -94,12 +94,7 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 }
 
-fn setup_game(
-    
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    main_layout: Res<MainLayout>,
-) {
+fn setup_game(mut commands: Commands, main_layout: Res<MainLayout>) {
     let file_content = fs::read_to_string(main_layout.path.clone()).unwrap();
     let test = serde_json::from_str::<TestStruct>(&file_content).unwrap();
     println!("Name of the test {:?}", test.name);
@@ -114,10 +109,9 @@ fn setup_game(
     });
 
     commands.insert_resource(movement::Actions::new(test.grid));
-    
 }
 
-fn game_loaded(mut state: ResMut<State<AppState>>){
+fn game_loaded(mut state: ResMut<State<AppState>>) {
     state.set(AppState::InGame).unwrap();
 }
 

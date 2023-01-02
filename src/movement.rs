@@ -114,6 +114,12 @@ impl Actions {
             .collect::<Vec<_>>()
     }
 
+    pub fn get_agents(&self) -> Vec<CellPosition> {
+        self.indices_of(-1)
+            .map(|(i, j)| CellPosition::new(i as u32, j as u32))
+            .collect::<Vec<_>>()
+    }
+
     pub fn get_shifts(&self, x: u8, y: u8) -> Shifts {
         let xs = x as usize;
         let ys = y as usize;

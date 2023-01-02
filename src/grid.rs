@@ -102,7 +102,8 @@ fn spawn_cells(
     let grid_entity = commands.spawn_empty().id();
 
     let mut grid = Grid::empty(grid_config.clone());
-    let size = (grid_config.window_height / grid_config.grid_height) as f32;
+    let x_size = (grid_config.window_width / grid_config.grid_width) as f32;
+    let y_size = (grid_config.window_height / grid_config.grid_height) as f32;
     for (i, j) in iproduct!(0..grid_config.grid_width, 0..grid_config.grid_height) {
         let color = Color::ALICE_BLUE;
 
@@ -111,7 +112,7 @@ fn spawn_cells(
         let (x, y) = cell_position.to_screen_position(&grid_config);
         let cell_id = commands
             .spawn(MaterialMesh2dBundle {
-                mesh: meshes.add(cell::Cell::new(size).into()).into(),
+                mesh: meshes.add(cell::Cell::new(x_size, y_size).into()).into(),
                 material: handle,
                 transform: Transform::from_xyz(x, y, 0.),
                 ..default()
@@ -151,20 +152,21 @@ fn spawn_cells(
         .insert(LastUpdate(0.0))
         .insert(Name::new("Grid"));
 
-    let cell_position = cell::CellPosition::new(0, 0);
-    let handle = materials.add(cell::CellMaterial::new(Color::VIOLET));
-    let (x, y) = cell_position.to_screen_position(&grid_config);
+    for (id, cell_position) in actions.get_agents().iter().enumerate() {
+        let handle = materials.add(cell::CellMaterial::new(Color::VIOLET));
+        let (x, y) = cell_position.to_screen_position(&grid_config);
 
-    commands
-        .spawn(MaterialMesh2dBundle {
-            mesh: meshes.add(cell::Cell::new(size).into()).into(),
-            material: handle,
-            transform: Transform::from_xyz(x, y, 1.),
-            ..default()
-        })
-        .insert(Agent { id: 1 })
-        .insert(cell_position)
-        .insert(Name::new("Agent 1"));
+        commands
+            .spawn(MaterialMesh2dBundle {
+                mesh: meshes.add(cell::Cell::new(x_size, y_size).into()).into(),
+                material: handle,
+                transform: Transform::from_xyz(x, y, 1.),
+                ..default()
+            })
+            .insert(Agent { id: id as u32 })
+            .insert(*cell_position)
+            .insert(Name::new(format!("Agent {}", id)));
+    }
 }
 
 fn update_agents(
